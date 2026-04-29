@@ -13,7 +13,7 @@ from loguru import logger
 from nanobot.agent.hook import AgentHook, AgentHookContext
 from nanobot.agent.runner import AgentRunner, AgentRunSpec
 from nanobot.agent.skills import BUILTIN_SKILLS_DIR
-from nanobot.agent.tools.filesystem import EditFileTool, ListDirTool, ReadFileTool, WriteFileTool
+from nanobot.agent.tools.filesystem import EditFileTool, ListDirTool, ReadFileTool, WriteFileTool, MEMORY_BOOTSTRAP_DENYLIST
 from nanobot.agent.tools.registry import ToolRegistry
 from nanobot.agent.tools.search import GlobTool, GrepTool
 from nanobot.agent.tools.shell import ExecTool
@@ -163,8 +163,16 @@ class SubagentManager:
             allowed_dir = self.workspace if (self.restrict_to_workspace or self.exec_config.sandbox) else None
             extra_read = [BUILTIN_SKILLS_DIR] if allowed_dir else None
             tools.register(ReadFileTool(workspace=self.workspace, allowed_dir=allowed_dir, extra_allowed_dirs=extra_read))
-            tools.register(WriteFileTool(workspace=self.workspace, allowed_dir=allowed_dir))
-            tools.register(EditFileTool(workspace=self.workspace, allowed_dir=allowed_dir))
+            tools.register(WriteFileTool(
+                workspace=self.workspace,
+                allowed_dir=allowed_dir,
+                deny_basenames=MEMORY_BOOTSTRAP_DENYLIST,
+            ))
+            tools.register(EditFileTool(
+                workspace=self.workspace,
+                allowed_dir=allowed_dir,
+                deny_basenames=MEMORY_BOOTSTRAP_DENYLIST,
+            ))
             tools.register(ListDirTool(workspace=self.workspace, allowed_dir=allowed_dir))
             tools.register(GlobTool(workspace=self.workspace, allowed_dir=allowed_dir))
             tools.register(GrepTool(workspace=self.workspace, allowed_dir=allowed_dir))

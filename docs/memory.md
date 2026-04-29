@@ -14,8 +14,8 @@ It separates memory into layers, because different kinds of remembering deserve 
 
 - `session.messages` holds the living short-term conversation.
 - `memory/history.jsonl` is the running archive of compressed past turns.
-- `SOUL.md`, `USER.md`, and `memory/MEMORY.md` are the durable knowledge files.
-- `GitStore` records how those durable files change over time.
+- `memory/MEMORY.md` holds all Dream-managed durable knowledge (user profile, preferences, bot tone, project facts). Optional root-level `SOUL.md` / `USER.md` may still exist as static bootstrap files; Dream does not write to them.
+- `GitStore` records how `memory/MEMORY.md` changes over time.
 
 This keeps the system light in the moment, but reflective over time.
 
@@ -50,14 +50,12 @@ It is not the final memory. It is the material from which final memory is shaped
 Dream reads:
 
 - new entries from `memory/history.jsonl`
-- the current `SOUL.md`
-- the current `USER.md`
 - the current `memory/MEMORY.md`
 
 Then it works in two phases:
 
 1. It studies what is new and what is already known.
-2. It edits the long-term files surgically, not by rewriting everything, but by making the smallest honest change that keeps memory coherent.
+2. It edits `memory/MEMORY.md` surgically, not by rewriting everything, but by making the smallest honest change that keeps memory coherent.
 
 This is why nanobot's memory is not just archival. It is interpretive.
 
@@ -65,21 +63,19 @@ This is why nanobot's memory is not just archival. It is interpretive.
 
 ```text
 workspace/
-├── SOUL.md              # The bot's long-term voice and communication style
-├── USER.md              # Stable knowledge about the user
+├── SOUL.md              # Optional static bootstrap (voice/rules); not updated by Dream
+├── USER.md              # Optional file from templates; not injected into the default system prompt — durable user facts belong in memory/MEMORY.md
 └── memory/
-    ├── MEMORY.md        # Project facts, decisions, and durable context
+    ├── MEMORY.md        # Dream-managed facts (user, preferences, tone, project context)
     ├── history.jsonl    # Append-only history summaries
     ├── .cursor          # Consolidator write cursor
     ├── .dream_cursor    # Dream consumption cursor
-    └── .git/            # Version history for long-term memory files
+    └── .git/            # Version history for memory/MEMORY.md
 ```
 
 These files play different roles:
 
-- `SOUL.md` remembers how nanobot should sound.
-- `USER.md` remembers who the user is and what they prefer.
-- `MEMORY.md` remembers what remains true about the work itself.
+- `memory/MEMORY.md` is the single file Dream maintains for long-term meaning about the user, the assistant's style, and the work.
 - `history.jsonl` remembers what happened on the way there.
 
 ## Why `history.jsonl`
@@ -110,7 +106,7 @@ python -c "import json; [print(json.loads(l).get('content','')) for l in open('m
 The difference is philosophical as much as technical:
 
 - `history.jsonl` is for structure
-- `SOUL.md`, `USER.md`, and `MEMORY.md` are for meaning
+- `memory/MEMORY.md` is for curated long-term meaning
 
 ## Commands
 
@@ -168,7 +164,7 @@ In practical terms:
 
 - `modelOverride: null` means Dream uses the same model as the main agent. Set it only if you want Dream to run on a different model.
 - `maxBatchSize` controls how many new `history.jsonl` entries Dream consumes in one run. Larger batches catch up faster; smaller batches are lighter and steadier.
-- `maxIterations` limits how many read/edit steps Dream can take while updating `SOUL.md`, `USER.md`, and `MEMORY.md`. It is a safety budget, not a quality score.
+- `maxIterations` limits how many read/edit steps Dream can take while updating `memory/MEMORY.md`. It is a safety budget, not a quality score.
 - `intervalH` is the normal way to configure Dream. Internally it runs as an `every` schedule, not as a cron expression.
 
 Legacy note:

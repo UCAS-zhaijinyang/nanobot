@@ -14,6 +14,23 @@ from nanobot.utils.helpers import build_image_content_blocks, detect_image_mime
 from nanobot.config.paths import get_media_dir
 
 
+# Workspace-root files agents must not create or overwrite — long-term knowledge
+# belongs in memory/MEMORY.md (and Dream/git track that file only).
+MEMORY_BOOTSTRAP_DENYLIST = frozenset({"SOUL.md", "USER.md"})
+
+
+def _denied_bootstrap_basename(path: str, deny_basenames: frozenset[str]) -> str | None:
+    """Return error message if *path* basename is denied, else None."""
+    if not deny_basenames:
+        return None
+    if Path(path).name in deny_basenames:
+        return (
+            "Error: Long-term memory belongs in memory/MEMORY.md only. "
+            "Do not create or edit SOUL.md or USER.md."
+        )
+    return None
+
+
 def _resolve_path(
     path: str,
     workspace: Path | None = None,
@@ -344,6 +361,17 @@ class ReadFileTool(_FsTool):
 class WriteFileTool(_FsTool):
     """Write content to a file."""
 
+    def __init__(
+        self,
+        workspace: Path | None = None,
+        allowed_dir: Path | None = None,
+        extra_allowed_dirs: list[Path] | None = None,
+        *,
+        deny_basenames: frozenset[str] | None = None,
+    ) -> None:
+        super().__init__(workspace, allowed_dir, extra_allowed_dirs)
+        self._deny_basenames = deny_basenames or frozenset()
+
     @property
     def name(self) -> str:
         return "write_file"
@@ -362,6 +390,8 @@ class WriteFileTool(_FsTool):
                 raise ValueError("Unknown path")
             if content is None:
                 raise ValueError("Unknown content")
+            if denied := _denied_bootstrap_basename(path, self._deny_basenames):
+                return denied
             fp = self._resolve(path)
             fp.parent.mkdir(parents=True, exist_ok=True)
             fp.write_text(content, encoding="utf-8")
@@ -657,6 +687,17 @@ class EditFileTool(_FsTool):
     _MAX_EDIT_FILE_SIZE = 1024 * 1024 * 1024  # 1 GiB
     _MARKDOWN_EXTS = frozenset({".md", ".mdx", ".markdown"})
 
+    def __init__(
+        self,
+        workspace: Path | None = None,
+        allowed_dir: Path | None = None,
+        extra_allowed_dirs: list[Path] | None = None,
+        *,
+        deny_basenames: frozenset[str] | None = None,
+    ) -> None:
+        super().__init__(workspace, allowed_dir, extra_allowed_dirs)
+        self._deny_basenames = deny_basenames or frozenset()
+
     @property
     def name(self) -> str:
         return "edit_file"
@@ -687,6 +728,9 @@ class EditFileTool(_FsTool):
                 raise ValueError("Unknown old_text")
             if new_text is None:
                 raise ValueError("Unknown new_text")
+
+            if denied := _denied_bootstrap_basename(path, self._deny_basenames):
+                return denied
 
             # .ipynb detection
             if path.endswith(".ipynb"):

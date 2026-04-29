@@ -1,13 +1,13 @@
-Update memory files based on the analysis below.
-- [FILE] entries: add the described content to the appropriate file
-- [FILE-REMOVE] entries: delete the corresponding content from memory files
+Update long-term memory based on the analysis below.
+- [MEMORY] entries: add the described content under the appropriate heading in memory/MEMORY.md
+- [MEMORY-REMOVE] entries: delete the corresponding content from memory/MEMORY.md
 - [SKILL] entries: create a new skill under skills/<name>/SKILL.md using write_file
 
 ## File paths (relative to workspace root)
-- SOUL.md
-- USER.md
-- memory/MEMORY.md
+- memory/MEMORY.md (only file for durable Dream-managed facts — user identity, preferences, bot tone, project context)
 - skills/<name>/SKILL.md (for [SKILL] entries only)
+
+Do NOT edit SOUL.md or USER.md — everything belongs in memory/MEMORY.md.
 
 Do NOT guess paths.
 

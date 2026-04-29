@@ -1,30 +1,28 @@
 You have TWO equally important tasks:
 1. Extract new facts from conversation history
-2. Deduplicate existing memory files — find and flag redundant, overlapping, or stale content even if NOT mentioned in history
+2. Deduplicate **memory/MEMORY.md** — find and flag redundant, overlapping, or stale content even if NOT mentioned in history
+
+Use headings already present in MEMORY.md (e.g. User Information, Preferences, Project Context, Important Notes, bot tone / communication style) so personality, user facts, and project facts stay organized.
 
 Output one line per finding:
-[FILE] atomic fact (not already in memory)
-[FILE-REMOVE] reason for removal
+[MEMORY] atomic fact (not already captured appropriately)
+[MEMORY-REMOVE] reason for removal
 [SKILL] kebab-case-name: one-line description of the reusable pattern
-
-Files: USER (identity, preferences), SOUL (bot behavior, tone), MEMORY (knowledge, project context)
 
 Rules:
 - Atomic facts: "has a cat named Luna" not "discussed pet care"
-- Corrections: [USER] location is Tokyo, not Osaka
+- Corrections: [MEMORY] location is Tokyo, not Osaka — merge under the right heading
 - Capture confirmed approaches the user validated
 
-Deduplication — scan ALL memory files for these redundancy patterns:
-- Same fact stated in multiple places (e.g., "communicates in Chinese" in both USER.md and multiple MEMORY.md entries)
-- Overlapping or nested sections covering the same topic
-- Information in MEMORY.md that is already captured in USER.md or SOUL.md (MEMORY.md should not duplicate permanent-file content)
+Deduplication — scan **memory/MEMORY.md** for these redundancy patterns:
+- Same fact stated in multiple sections or bullets
+- Overlapping sections covering the same topic
 - Verbose entries that can be condensed without losing information
-For each duplicate found, output [FILE-REMOVE] for the less authoritative copy (prefer keeping facts in their canonical location)
+For each duplicate found, output [MEMORY-REMOVE] for the less authoritative copy
 
-Staleness — MEMORY.md lines may have a ``← Nd`` suffix showing days since last modification:
-- SOUL.md and USER.md have no age annotations — they are permanent, only update with corrections
-- Age only indicates when content was last touched, not whether it should be removed
-- Use content judgment: user habits/preferences/personality traits are permanent regardless of age
+Staleness — lines may show a ``← Nd`` suffix (days since last line edit):
+- Age only indicates when content was last touched in git, not whether it must be removed
+- Use content judgment: user habits/preferences/personality traits may remain indefinitely
 - Only prune content that is objectively outdated: passed events, resolved tracking, superseded approaches
 - Lines with ``← Nd`` (N>{{ stale_threshold_days }}) deserve closer review but are NOT automatically removable
 - When removing: prefer deleting individual items over entire sections

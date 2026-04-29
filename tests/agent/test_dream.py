@@ -15,8 +15,6 @@ from nanobot.utils.gitstore import LineAge
 @pytest.fixture
 def store(tmp_path):
     s = MemoryStore(tmp_path)
-    s.write_soul("# Soul\n- Helpful")
-    s.write_user("# User\n- Developer")
     s.write_memory("# Memory\n- Project X active")
     return s
 
@@ -126,6 +124,16 @@ class TestDreamRun:
         assert "Successfully wrote" in result
         assert (store.workspace / "skills" / "test-skill" / "SKILL.md").exists()
 
+    async def test_dream_edit_rejects_soul_and_user_paths(self, dream, store):
+        """Phase 2 edit_file must refuse SOUL.md / USER.md — consolidated in MEMORY.md."""
+        edit_tool = dream._tools.get("edit_file")
+        assert edit_tool is not None
+        out = await edit_tool.execute(path="SOUL.md", old_text="a", new_text="b")
+        assert "Error:" in out
+        assert "MEMORY.md" in out
+        out2 = await edit_tool.execute(path="USER.md", old_text="a", new_text="b")
+        assert "Error:" in out2
+
     async def test_phase1_prompt_includes_line_age_annotations(self, dream, mock_provider, mock_runner, store):
         """Phase 1 prompt should have per-line age suffixes in MEMORY.md when git is available."""
         store.append_history("some event")
@@ -143,8 +151,8 @@ class TestDreamRun:
         user_msg = call_args.kwargs.get("messages", call_args[1].get("messages"))[1]["content"]
         assert "## Current MEMORY.md" in user_msg
 
-    async def test_phase1_annotates_only_memory_not_soul_or_user(self, dream, mock_provider, mock_runner, store):
-        """SOUL.md and USER.md should never have age annotations — they are permanent."""
+    async def test_phase1_annotates_only_memory_section(self, dream, mock_provider, mock_runner, store):
+        """Age suffixes must only appear in the MEMORY preview, not in conversation history."""
         store.append_history("some event")
         mock_provider.chat_with_retry.return_value = MagicMock(content="[SKIP]")
         mock_runner.run = AsyncMock(return_value=_make_run_result())
@@ -156,13 +164,10 @@ class TestDreamRun:
 
         call_args = mock_provider.chat_with_retry.call_args
         user_msg = call_args.kwargs.get("messages", call_args[1].get("messages"))[1]["content"]
-        # The ← suffix should only appear in MEMORY.md section
-        memory_section = user_msg.split("## Current MEMORY.md")[1].split("## Current SOUL.md")[0]
-        soul_section = user_msg.split("## Current SOUL.md")[1].split("## Current USER.md")[0]
-        user_section = user_msg.split("## Current USER.md")[1]
-        # SOUL and USER should not contain age arrows
-        assert "\u2190" not in soul_section
-        assert "\u2190" not in user_section
+        idx = user_msg.find("## Current MEMORY.md")
+        assert idx != -1
+        prefix = user_msg[:idx]
+        assert "\u2190" not in prefix
 
     async def test_phase1_prompt_works_without_git(self, dream, mock_provider, mock_runner, store):
         """Phase 1 should work fine even if git is not initialized (no age annotations)."""
@@ -200,7 +205,7 @@ class TestDreamRun:
 
         call_args = mock_provider.chat_with_retry.call_args
         user_msg = call_args.kwargs.get("messages", call_args[1].get("messages"))[1]["content"]
-        memory_section = user_msg.split("## Current MEMORY.md")[1].split("## Current SOUL.md")[0]
+        memory_section = user_msg.split("## Current MEMORY.md")[1]
         assert "\u2190 30d" in memory_section
         assert "\u2190 20d" in memory_section
         assert "\u2190 14d" not in memory_section
@@ -240,7 +245,7 @@ class TestDreamRun:
 
         call_args = mock_provider.chat_with_retry.call_args
         user_msg = call_args.kwargs.get("messages", call_args[1].get("messages"))[1]["content"]
-        memory_section = user_msg.split("## Current MEMORY.md")[1].split("## Current SOUL.md")[0]
+        memory_section = user_msg.split("## Current MEMORY.md")[1]
         # No age arrow at all — we refused to annotate rather than tag the wrong line.
         assert "\u2190" not in memory_section
 
@@ -279,7 +284,7 @@ class TestDreamPromptCaps:
         await dream.run()
 
         user_msg = mock_provider.chat_with_retry.call_args.kwargs["messages"][1]["content"]
-        memory_section = user_msg.split("## Current MEMORY.md")[1].split("## Current SOUL.md")[0]
+        memory_section = user_msg.split("## Current MEMORY.md")[1]
         assert len(memory_section) < dream._MEMORY_FILE_MAX_CHARS + 500
 
     async def test_phase1_caps_huge_history_entry(

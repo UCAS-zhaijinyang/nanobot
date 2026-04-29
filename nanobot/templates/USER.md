@@ -1,6 +1,6 @@
 # User Profile
 
-Information about the user to help personalize interactions.
+Durable facts for the assistant belong in `memory/MEMORY.md` (managed by Dream). This file is optional and is **not** included in the default system prompt — keep it only if you use it for personal notes.
 
 ## Basic Information
 

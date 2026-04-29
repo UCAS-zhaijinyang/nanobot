@@ -8,10 +8,10 @@ always: true
 
 ## Structure
 
-- `SOUL.md` — Bot personality and communication style. **Managed by Dream.** Do NOT edit.
-- `USER.md` — User profile and preferences. **Managed by Dream.** Do NOT edit.
-- `memory/MEMORY.md` — Long-term facts (project context, important events). **Managed by Dream.** Do NOT edit.
+- `memory/MEMORY.md` — All Dream-managed long-term knowledge (user profile, preferences, bot tone, project context). **Managed by Dream.** Do NOT edit.
 - `memory/history.jsonl` — append-only JSONL, not loaded into context. Prefer the built-in `grep` tool to search it.
+
+Optional bootstrap file `SOUL.md` may still exist from templates for static instructions (included in the system prompt). Durable user facts belong in `memory/MEMORY.md` — `USER.md` is not loaded into context by default, and agents cannot edit `SOUL.md` / `USER.md` via file tools.
 
 ## Search Past Events
 
@@ -31,6 +31,6 @@ Examples (replace `keyword`):
 
 ## Important
 
-- **Do NOT edit SOUL.md, USER.md, or MEMORY.md.** They are automatically managed by Dream.
+- **Do NOT edit memory/MEMORY.md** — it is automatically managed by Dream.
 - If you notice outdated information, it will be corrected when Dream runs next.
 - Users can view Dream's activity with the `/dream-log` command.

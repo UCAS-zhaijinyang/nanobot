@@ -21,20 +21,6 @@ class TestMemoryStoreBasicIO:
         store.write_memory("hello")
         assert store.read_memory() == "hello"
 
-    def test_read_soul_returns_empty_when_missing(self, store):
-        assert store.read_soul() == ""
-
-    def test_write_and_read_soul(self, store):
-        store.write_soul("soul content")
-        assert store.read_soul() == "soul content"
-
-    def test_read_user_returns_empty_when_missing(self, store):
-        assert store.read_user() == ""
-
-    def test_write_and_read_user(self, store):
-        store.write_user("user content")
-        assert store.read_user() == "user content"
-
     def test_get_memory_context_returns_empty_when_missing(self, store):
         assert store.get_memory_context() == ""
 

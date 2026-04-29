@@ -408,3 +408,36 @@ class TestWorkspaceRestriction:
         assert "Error" in result
         assert "outside" in result.lower()
         assert skill_file.read_text() == "# Weather\nOriginal content."
+
+
+class TestMemoryBootstrapDenylist:
+    @pytest.mark.asyncio
+    async def test_write_denies_configured_basenames(self, tmp_path):
+        from nanobot.agent.tools.filesystem import MEMORY_BOOTSTRAP_DENYLIST, WriteFileTool
+
+        workspace = tmp_path / "ws"
+        workspace.mkdir()
+        tool = WriteFileTool(
+            workspace=workspace,
+            allowed_dir=workspace,
+            deny_basenames=MEMORY_BOOTSTRAP_DENYLIST,
+        )
+        r = await tool.execute(path="USER.md", content="x")
+        assert "Error:" in r
+        assert not (workspace / "USER.md").exists()
+
+    @pytest.mark.asyncio
+    async def test_edit_denies_configured_basenames(self, tmp_path):
+        from nanobot.agent.tools.filesystem import MEMORY_BOOTSTRAP_DENYLIST, EditFileTool
+
+        workspace = tmp_path / "ws"
+        workspace.mkdir()
+        (workspace / "SOUL.md").write_text("old\n", encoding="utf-8")
+        tool = EditFileTool(
+            workspace=workspace,
+            allowed_dir=workspace,
+            deny_basenames=MEMORY_BOOTSTRAP_DENYLIST,
+        )
+        r = await tool.execute(path="SOUL.md", old_text="old", new_text="new")
+        assert "Error:" in r
+        assert (workspace / "SOUL.md").read_text() == "old\n"

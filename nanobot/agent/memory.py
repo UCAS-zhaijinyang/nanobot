@@ -18,6 +18,7 @@ from nanobot.utils.prompt_templates import render_template
 from nanobot.utils.helpers import ensure_dir, estimate_message_tokens, estimate_prompt_tokens_chain, strip_think, truncate_text
 
 from nanobot.agent.runner import AgentRunSpec, AgentRunner
+from nanobot.agent.tools.filesystem import EditFileTool, MEMORY_BOOTSTRAP_DENYLIST
 from nanobot.agent.tools.registry import ToolRegistry
 from nanobot.utils.gitstore import GitStore
 
@@ -31,7 +32,12 @@ if TYPE_CHECKING:
 # ---------------------------------------------------------------------------
 
 class MemoryStore:
-    """Pure file I/O for memory files: MEMORY.md, history.jsonl, SOUL.md, USER.md."""
+    """Pure file I/O for memory files: MEMORY.md and history.jsonl.
+
+    Dream-managed long-term knowledge is persisted only in ``memory/MEMORY.md``.
+    ``SOUL.md`` / ``USER.md`` at the workspace root remain optional bootstrap
+    files (see ``ContextBuilder``); they are not written by Dream.
+    """
 
     _DEFAULT_MAX_HISTORY = 1000
     _LEGACY_ENTRY_START_RE = re.compile(r"^\[(\d{4}-\d{2}-\d{2}[^\]]*)\]\s*")
@@ -47,15 +53,11 @@ class MemoryStore:
         self.memory_file = self.memory_dir / "MEMORY.md"
         self.history_file = self.memory_dir / "history.jsonl"
         self.legacy_history_file = self.memory_dir / "HISTORY.md"
-        self.soul_file = workspace / "SOUL.md"
-        self.user_file = workspace / "USER.md"
         self._cursor_file = self.memory_dir / ".cursor"
         self._dream_cursor_file = self.memory_dir / ".dream_cursor"
         self._corruption_logged = False  # rate-limit non-int cursor warning
         self._oversize_logged = False  # rate-limit oversized-entry warning
-        self._git = GitStore(workspace, tracked_files=[
-            "SOUL.md", "USER.md", "memory/MEMORY.md",
-        ])
+        self._git = GitStore(workspace, tracked_files=["memory/MEMORY.md"])
         self._maybe_migrate_legacy_history()
 
     @property
@@ -199,22 +201,6 @@ class MemoryStore:
 
     def write_memory(self, content: str) -> None:
         self.memory_file.write_text(content, encoding="utf-8")
-
-    # -- SOUL.md -------------------------------------------------------------
-
-    def read_soul(self) -> str:
-        return self.read_file(self.soul_file)
-
-    def write_soul(self, content: str) -> None:
-        self.soul_file.write_text(content, encoding="utf-8")
-
-    # -- USER.md -------------------------------------------------------------
-
-    def read_user(self) -> str:
-        return self.read_file(self.user_file)
-
-    def write_user(self, content: str) -> None:
-        self.user_file.write_text(content, encoding="utf-8")
 
     # -- context injection (used by context.py) ------------------------------
 
@@ -713,11 +699,9 @@ class Dream:
 
     # Caps on prompt-bound inputs so Dream's LLM calls never exceed the model's
     # context window just because a file (or a legacy large history entry) grew
-    # unexpectedly. Each file still appears in full via read_file when the agent
+    # unexpectedly. MEMORY.md still appears in full via read_file when the agent
     # needs it in Phase 2 — these caps only bound the Phase 1/2 prompt preview.
-    _MEMORY_FILE_MAX_CHARS = 32_000
-    _SOUL_FILE_MAX_CHARS = 16_000
-    _USER_FILE_MAX_CHARS = 16_000
+    _MEMORY_FILE_MAX_CHARS = 48_000
     _HISTORY_ENTRY_PREVIEW_MAX_CHARS = 4_000
 
     def __init__(
@@ -753,7 +737,7 @@ class Dream:
     def _build_tools(self) -> ToolRegistry:
         """Build a minimal tool registry for the Dream agent."""
         from nanobot.agent.skills import BUILTIN_SKILLS_DIR
-        from nanobot.agent.tools.filesystem import EditFileTool, ReadFileTool, WriteFileTool
+        from nanobot.agent.tools.filesystem import ReadFileTool, WriteFileTool
 
         tools = ToolRegistry()
         workspace = self.store.workspace
@@ -764,7 +748,11 @@ class Dream:
             allowed_dir=workspace,
             extra_allowed_dirs=extra_read,
         ))
-        tools.register(EditFileTool(workspace=workspace, allowed_dir=workspace))
+        tools.register(EditFileTool(
+            workspace=workspace,
+            allowed_dir=workspace,
+            deny_basenames=MEMORY_BOOTSTRAP_DENYLIST,
+        ))
         # write_file resolves relative paths from workspace root, but can only
         # write under skills/ so the prompt can safely use skills/<name>/SKILL.md.
         skills_dir = workspace / "skills"
@@ -811,7 +799,6 @@ class Dream:
         annotate fails, or the line count doesn't match the age count
         (which can happen with an uncommitted working-tree edit — better to
         skip annotation than to tag the wrong line).
-        SOUL.md and USER.md are never annotated.
         """
         file_path = "memory/MEMORY.md"
         try:
@@ -882,18 +869,10 @@ class Dream:
             else raw_memory
         )
         current_memory = truncate_text(annotated_memory, self._MEMORY_FILE_MAX_CHARS)
-        current_soul = truncate_text(
-            self.store.read_soul() or "(empty)", self._SOUL_FILE_MAX_CHARS,
-        )
-        current_user = truncate_text(
-            self.store.read_user() or "(empty)", self._USER_FILE_MAX_CHARS,
-        )
 
         file_context = (
             f"## Current Date\n{current_date}\n\n"
-            f"## Current MEMORY.md ({len(current_memory)} chars)\n{current_memory}\n\n"
-            f"## Current SOUL.md ({len(current_soul)} chars)\n{current_soul}\n\n"
-            f"## Current USER.md ({len(current_user)} chars)\n{current_user}"
+            f"## Current MEMORY.md ({len(current_memory)} chars)\n{current_memory}"
         )
 
         # Phase 1: Analyze (no skills list — dedup is Phase 2's job)
